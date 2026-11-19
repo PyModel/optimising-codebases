@@ -1,6 +1,6 @@
 ---
 name: optimise
-description: "Audit a repository for bugs, security weaknesses, missing failure handling, unsafe retries, data corruption, cross-layer mismatches, misconfiguration, scalability limits, and justified code-quality improvements. Use for comprehensive codebase audits, production-readiness reviews, architecture or resilience assessments, and requests to fan out specialist agents. Scout the actual code first, assign adaptive specialist reviews, verify findings, consult current primary sources, and deliver a prioritized evidence-backed report. Default to reporting; apply fixes only when requested. Do not invoke for an unrelated small edit or a purely conceptual question."
+description: "Use when asked to audit a codebase comprehensively, review production readiness, assess architecture, resilience or scalability, fan out specialist agents across a repository, or optimise or harden a whole codebase through an evidence-backed audit. Scout first, tailor specialist reviews to what the scouts find, verify findings and consult current primary sources. By default, deliver a prioritized report of defects, risks and justified improvements. Apply fixes only when asked. Prefer code-review for a routine PR diff. Prefer security-audit for a security-only review or pen test. Prefer improve for read-only handoff plans for other agents. Prefer critique for an adversarial critique of one design, component or flow."
 ---
 
 # Optimise
