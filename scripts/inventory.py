@@ -428,13 +428,15 @@ def collect(root: Path, maximum: int, depth: int, timeout: float) -> dict:
                             inventory.walk(directory, "supplemental_metadata")
                 else:
                     inventory.gap("Git file enumeration failed; used bounded filesystem traversal instead.")
-                # Status may execute clean/process filters while comparing files.
-                # Discover scopes and names only, never values. User-level
-                # (global/system) filters such as git-lfs are the auditor's own
-                # tools; decline status when any other scope defines a filter
-                # (repository, worktree, include, environment) or scope is unknown.
+                # Status may execute clean/process filters while comparing files,
+                # and git-lfs's filter runs lfs.extension commands. Discover scopes
+                # and names only, never values. User-level (global/system) entries
+                # are the auditor's own tools (a trusted LFS filter may add objects
+                # under .git/lfs); decline status when any other scope (repository,
+                # worktree, include, environment) defines one or scope is unknown.
                 filters = command(base + ["config", "--null", "--show-scope", "--name-only", "--get-regexp",
-                                          r"^filter\..*\.(clean|process)$"], root, timeout, 65536)
+                                          r"^(filter\..*\.(clean|process)|lfs\.extension\..*)$"],
+                                  root, timeout, 65536)
                 fields = filters["stdout"].split(b"\0")
                 filters_known = (filters["code"] in {0, 1} and not filters["limit"]
                                  and fields[-1] == b"" and len(fields) % 2 == 1)

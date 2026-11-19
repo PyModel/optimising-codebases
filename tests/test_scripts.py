@@ -142,6 +142,13 @@ class InventoryTest(Scratch):
         self.git('status', '--porcelain')  # control: the planted filter is live for plain git
         self.assertTrue(marker.exists(), 'test cannot fail: git status did not run the filter')
 
+    def test_repository_lfs_extension_blocks_status(self):
+        # A trusted global lfs filter runs lfs.extension commands, which repo config can define.
+        with self.global_config.open('a') as stream:
+            stream.write('[filter "lfs"]\n\tclean = git-lfs clean -- %f\n\tprocess = git-lfs filter-process\n')
+        self.git('config', 'lfs.extension.x.clean', 'touch planted')
+        self.assertFalse(self.inventory()['git']['status_complete'])
+
     def test_output_rejects_planted_symlink_parent(self):
         real = self.dir / 'real'
         real.mkdir()
