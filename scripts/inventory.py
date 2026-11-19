@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import errno
 import json
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -428,13 +429,18 @@ def collect(root: Path, maximum: int, depth: int, timeout: float) -> dict:
                 else:
                     inventory.gap("Git file enumeration failed; used bounded filesystem traversal instead.")
                 # Status may execute clean/process filters while comparing files.
-                # Discover names only, never values, and decline status when an
-                # external filter is configured or its presence is uncertain.
-                filters = command(base + ["config", "--null", "--name-only", "--get-regexp",
+                # Discover scopes and names only, never values. User-level
+                # (global/system) filters such as git-lfs are the auditor's own
+                # tools; decline status when any other scope defines a filter
+                # (repository, worktree, include, environment) or scope is unknown.
+                filters = command(base + ["config", "--null", "--show-scope", "--name-only", "--get-regexp",
                                           r"^filter\..*\.(clean|process)$"], root, timeout, 65536)
-                filters_known = filters["code"] in {0, 1} and not filters["limit"]
-                if not filters_known or filters["stdout"]:
-                    inventory.gap("Git dirty status was skipped because external clean/process filters are configured or could not be ruled out; inspect those helpers before authorized execution.")
+                fields = filters["stdout"].split(b"\0")
+                filters_known = (filters["code"] in {0, 1} and not filters["limit"]
+                                 and fields[-1] == b"" and len(fields) % 2 == 1)
+                untrusted = {scope for scope in fields[:-1:2] if scope not in {b"global", b"system"}}
+                if not filters_known or untrusted:
+                    inventory.gap("Git dirty status was skipped because repository-scoped clean/process filters are configured or could not be ruled out; inspect those helpers before authorized execution.")
                 else:
                     status_result = command(base + ["status", "--porcelain=v1", "-z",
                                                    "--untracked-files=all", "--ignore-submodules=all"],
@@ -478,11 +484,32 @@ def collect(root: Path, maximum: int, depth: int, timeout: float) -> dict:
     }
 
 
+def resolve_os_links(directory: Path) -> Path:
+    """Resolve root-owned symlinks in the existing prefix of an absolute directory.
+
+    Neither an audited repository nor a non-root process can create a root-owned
+    link, so these are OS layout (macOS /tmp and /var). Every other symlink is
+    left in place for the caller's no-follow check to reject.
+    """
+    if not hasattr(os, "geteuid") or os.geteuid() == 0:
+        return directory  # as root, ownership no longer separates OS links from planted ones
+    current = Path(directory.anchor)
+    for index, part in enumerate(directory.parts[1:], 1):
+        candidate = current / part
+        try:
+            info = candidate.lstat()
+        except OSError:
+            return candidate.joinpath(*directory.parts[index + 1:])
+        current = Path(os.path.realpath(candidate)) if stat.S_ISLNK(info.st_mode) and info.st_uid == 0 else candidate
+    return current
+
+
 def atomic_new_output(path: str, content: str) -> None:
     """Create a new file atomically, rejecting symlink parent components.
 
-    Directory descriptors pin the destination while writing. A hard-link publish
-    is atomic and fails if the destination exists, unlike os.replace().
+    Root-owned OS links are resolved first. Directory descriptors pin the
+    destination while writing. A hard-link publish is atomic and fails if the
+    destination exists, unlike os.replace().
     """
     required = (os.open, os.mkdir, os.link, os.unlink)
     if not hasattr(os, "O_NOFOLLOW") or any(fn not in os.supports_dir_fd for fn in required):
@@ -490,6 +517,7 @@ def atomic_new_output(path: str, content: str) -> None:
     destination = Path(os.path.abspath(path))
     if destination.name in {"", ".", ".."}:
         raise ValueError("Output must name a new file.")
+    destination = resolve_os_links(destination.parent) / destination.name
     descriptor = os.open(destination.anchor, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     temporary = ".inventory-" + uuid.uuid4().hex + ".tmp"
     created = False
@@ -500,6 +528,11 @@ def atomic_new_output(path: str, content: str) -> None:
             except FileNotFoundError:
                 os.mkdir(component, mode=0o700, dir_fd=descriptor)
                 child = os.open(component, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=descriptor)
+            except OSError as exc:
+                if exc.errno not in {errno.ELOOP, errno.ENOTDIR}:
+                    raise
+                raise OSError(f"Output parent {component!r} is a symlink or not a directory; "
+                              "choose a real directory path.") from None
             os.close(descriptor)
             descriptor = child
         fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,

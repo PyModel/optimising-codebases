@@ -11,7 +11,7 @@
     "working_tree": "unknown",
     "scope": ["."],
     "exclusions": [],
-    "limitations": ["Replace with actual source, runtime, tooling, and research limitations."]
+    "limitations": ["REPLACE_WITH_ACTUAL_SOURCE_RUNTIME_TOOLING_AND_RESEARCH_LIMITATIONS"]
   },
   "coverage": [],
   "findings": [],

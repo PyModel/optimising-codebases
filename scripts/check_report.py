@@ -17,6 +17,8 @@ import sys
 import tempfile
 from urllib.parse import urlsplit
 
+from inventory import resolve_os_links
+
 
 class Invalid(ValueError):
     pass
@@ -88,13 +90,25 @@ def references(row, key, available, where, nonempty=False):
     return values
 
 
+def placeholders(value, where):
+    """Reject any template token left anywhere in the audit metadata."""
+    if isinstance(value, str):
+        need('REPLACE_WITH_' not in value, f'{where}: replace template values')
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            placeholders(item, f'{where}.{key}')
+    elif isinstance(value, list):
+        for i, item in enumerate(value):
+            placeholders(item, f'{where}[{i}]')
+
+
 def validate(data):
     obj(data, 'report')
     need(data.get('schema_version') == '1.0', 'schema_version: expected 1.0')
     audit = obj(data.get('audit'), 'audit')
     for key in ('id', 'repository', 'snapshot'):
-        value = string(audit, key, 'audit')
-        need('REPLACE_WITH_' not in value, f'audit.{key}: replace template values')
+        string(audit, key, 'audit')
+    placeholders(audit, 'audit')
     start = timestamp(string(audit, 'started_at', 'audit'), 'audit.started_at')
     end = timestamp(string(audit, 'completed_at', 'audit'), 'audit.completed_at')
     need(end >= start, 'audit: completed_at precedes started_at')
@@ -354,6 +368,8 @@ def reject_constant(value):
 
 def write_atomic(path, content, source):
     need(path.suffix.lower() == '.md', '--render destination must use .md')
+    path = Path(os.path.abspath(path))
+    path = resolve_os_links(path.parent) / path.name
     need(path.resolve() != source.resolve(), 'render destination cannot overwrite input')
     need(not path.is_symlink(), 'render destination cannot be a symlink')
     need(not any(parent.is_symlink() for parent in path.absolute().parents), 'render parent cannot be a symlink')
