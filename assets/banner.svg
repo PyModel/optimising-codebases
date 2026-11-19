@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="176" viewBox="0 0 800 176" role="img" aria-labelledby="title">
+  <title id="title">Optimising Codebases</title>
+  <rect x="0.5" y="0.5" width="799" height="175" rx="19" fill="#111b2a" stroke="#35455a"/>
+  <text x="40" y="106" fill="#f1f5f9" font-family="system-ui, -apple-system, sans-serif" font-size="54" font-weight="700" letter-spacing="-1.5">Optimising Codebases</text>
+  <g fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M652 62h28m-28 14h20m-20 14h28m-28 14h16" stroke="#657991"/>
+    <circle cx="716" cy="82" r="28" fill="#111b2a" stroke="#a2b2c5"/>
+    <path d="m736 102 22 22" stroke="#a2b2c5" stroke-width="6"/>
+    <circle cx="716" cy="82" r="15" fill="#91efbb" stroke="none"/>
+    <path d="m709 82 5 5 9-10" stroke="#111b2a"/>
+  </g>
+</svg>
