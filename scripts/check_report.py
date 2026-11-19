@@ -16,8 +16,26 @@ import re
 import sys
 import tempfile
 from urllib.parse import urlsplit
+import stat
 
-from inventory import resolve_os_links
+
+def resolve_os_links(directory):
+    """Resolve root-owned symlinks (macOS /tmp, /var) in an absolute directory's existing prefix.
+
+    Copy of inventory.resolve_os_links: each script stays standalone under `python3 -I`.
+    Other symlinks stay in place for write_atomic to reject.
+    """
+    if not hasattr(os, 'geteuid') or os.geteuid() == 0:
+        return directory  # as root, ownership no longer separates OS links from planted ones
+    current = Path(directory.anchor)
+    for index, part in enumerate(directory.parts[1:], 1):
+        candidate = current / part
+        try:
+            info = candidate.lstat()
+        except OSError:
+            return candidate.joinpath(*directory.parts[index + 1:])
+        current = Path(os.path.realpath(candidate)) if stat.S_ISLNK(info.st_mode) and info.st_uid == 0 else candidate
+    return current
 
 
 class Invalid(ValueError):

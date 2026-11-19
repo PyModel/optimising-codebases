@@ -21,7 +21,8 @@ OS_LINKED_TMP = (TMP.is_symlink() and TMP.lstat().st_uid == 0
 
 
 def run(script, *args, env=None):
-    return subprocess.run([sys.executable, str(script), *map(str, args)],
+    # -I: agents run scripts isolated, so each script must not import its siblings.
+    return subprocess.run([sys.executable, '-I', str(script), *map(str, args)],
                           capture_output=True, text=True, env=env, timeout=60)
 
 
@@ -80,7 +81,9 @@ class CheckReportTest(Scratch):
     def test_reproduced_without_executed_command_is_rejected(self):
         data = report()
         data['commands'][0].update(status='not-run', exit_code=None)
-        self.assertEqual(run(CHECK, self.write_report(data)).returncode, 1)
+        result = run(CHECK, self.write_report(data))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('reproduced requires an executed command', result.stderr)
 
     def test_render_rejects_planted_symlink_parent(self):
         real = self.dir / 'real'
@@ -88,6 +91,7 @@ class CheckReportTest(Scratch):
         (self.dir / 'link').symlink_to(real)
         result = run(CHECK, self.write_report(report()), '--render', self.dir / 'link' / 'report.md')
         self.assertEqual(result.returncode, 1)
+        self.assertIn('render parent cannot be a symlink', result.stderr)
         self.assertEqual(list(real.iterdir()), [])
 
     @unittest.skipUnless(OS_LINKED_TMP, 'needs a root-owned /tmp symlink (macOS)')
@@ -155,6 +159,7 @@ class InventoryTest(Scratch):
         (self.dir / 'link').symlink_to(real)
         result = run(INVENTORY, self.repo, '--output', self.dir / 'link' / 'inventory.json', env=self.env)
         self.assertEqual(result.returncode, 2)
+        self.assertIn("Output parent 'link' is a symlink", result.stderr)
         self.assertEqual(list(real.iterdir()), [])
 
     @unittest.skipUnless(OS_LINKED_TMP, 'needs a root-owned /tmp symlink (macOS)')
