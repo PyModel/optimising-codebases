@@ -1,9 +1,9 @@
 ---
-name: audit-codebase
+name: optimise
 description: "Audit a repository for bugs, security weaknesses, missing failure handling, unsafe retries, data corruption, cross-layer mismatches, misconfiguration, scalability limits, and justified code-quality improvements. Use for comprehensive codebase audits, production-readiness reviews, architecture or resilience assessments, and requests to fan out specialist agents. Scout the actual code first, assign adaptive specialist reviews, verify findings, consult current primary sources, and deliver a prioritized evidence-backed report. Default to reporting; apply fixes only when requested. Do not invoke for an unrelated small edit or a purely conceptual question."
 ---
 
-# Audit Codebase
+# Optimise
 
 ## Operating contract
 

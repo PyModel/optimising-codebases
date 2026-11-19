@@ -1,7 +1,7 @@
 interface:
-  display_name: Codebase Audit
+  display_name: Optimise
   short_description: Scout, verify, and prioritize codebase risks
-  default_prompt: Use $audit-codebase to scout this repository, delegate specialist
+  default_prompt: Use $optimise to scout this repository, delegate specialist
     audits, verify findings against code and current official guidance, and report
     defects, resilience gaps, scalability risks, and justified improvements.
   icon_small: assets/icon.svg

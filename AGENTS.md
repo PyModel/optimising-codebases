@@ -1,8 +1,8 @@
 # Repository guidance
 
-This repo is one agent skill, `audit-codebase` (folder name `optimise`; the installed link name is what agents see).
+This repo is one agent skill, `optimise` (folder and installed link names match the frontmatter `name`).
 
-- Installed as a symlink to this working tree: `~/.agents/skills/audit-codebase` → here, with relative links from
+- Installed as a symlink to this working tree: `~/.agents/skills/optimise` → here, with relative links from
   `~/.claude/skills`, `~/.codex/skills` and `~/.pi/agent/skills` (opencode reads `~/.agents/skills`).
   Every saved edit is live in all four agents at once; keep `main` working.
 - Scripts are Python 3.10+ standard library only, no shell, read-only against the audited repo.
