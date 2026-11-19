@@ -20,10 +20,10 @@ OS_LINKED_TMP = (TMP.is_symlink() and TMP.lstat().st_uid == 0
                  and hasattr(os, 'geteuid') and os.geteuid() != 0)
 
 
-def run(script, *args, env=None):
+def run(script, *args, env=None, umask=-1):
     # -I: agents run scripts isolated, so each script must not import its siblings.
     return subprocess.run([sys.executable, '-I', str(script), *map(str, args)],
-                          capture_output=True, text=True, env=env, timeout=60)
+                          capture_output=True, text=True, env=env, umask=umask, timeout=60)
 
 
 def report():
@@ -85,6 +85,72 @@ class CheckReportTest(Scratch):
         self.assertEqual(result.returncode, 1)
         self.assertIn('reproduced requires an executed command', result.stderr)
 
+    def test_delta_requires_nonempty_baseline(self):
+        data = report()
+        data['audit']['mode'] = 'delta'
+        for baseline in (None, '  ', 17, 'prior snapshot'):
+            with self.subTest(baseline=baseline):
+                if baseline is not None:
+                    data['audit']['baseline'] = baseline
+                result = run(CHECK, self.write_report(data))
+                if baseline == 'prior snapshot':
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                else:
+                    self.assertEqual(result.returncode, 1, result.stdout)
+                    self.assertIn('audit.baseline: expected nonempty string', result.stderr)
+
+    def test_finding_rejects_not_applicable_coverage(self):
+        data = report()
+        row = dict(data['coverage'][0], id='COV-2', status='not-applicable', gaps=['Outside scope'])
+        data['coverage'].append(row)
+        data['findings'][0]['coverage_ids'].append(row['id'])
+        result = run(CHECK, self.write_report(data))
+        self.assertEqual(result.returncode, 1, result.stdout)
+        for detail in ('Invalid audit:', 'AUD-001', 'COV-2', 'not-applicable'):
+            self.assertIn(detail, result.stderr)
+
+    def test_high_priority_finding_warns_only_without_action(self):
+        data = report()
+        for priority in ('P0', 'P1'):
+            data['findings'][0]['priority'] = priority
+            warning = f'Warning: AUD-001: {priority} finding has no next action'
+            for refs in (['AUD-001'], []):
+                with self.subTest(priority=priority, refs=refs):
+                    data['next_actions'][0]['finding_ids'] = refs
+                    result = run(CHECK, self.write_report(data))
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    if refs:
+                        self.assertNotIn(warning, result.stdout)
+                    else:
+                        self.assertIn(warning, result.stdout)
+
+    def test_render_creates_private_nested_dirs_and_overwrites_regular_file(self):
+        source = self.write_report(report())
+        out = self.dir / 'reports' / 'current' / 'report.md'
+        result = run(CHECK, source, '--render', out, umask=0o022)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        out.write_text('stale report', encoding='utf-8')
+        result = run(CHECK, source, '--render', out)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Verified defects: **1**', out.read_text(encoding='utf-8'))
+        for parent in (out.parent.parent, out.parent):
+            self.assertEqual(oct(parent.stat().st_mode & 0o777), '0o700', str(parent))
+
+    def test_render_rejects_destination_symlink(self):
+        source = self.write_report(report())
+        previous = self.dir / 'previous.md'
+        previous.write_text('previous report', encoding='utf-8')
+        for target in (previous, source):
+            with self.subTest(target=target.name):
+                original = target.read_bytes()
+                out = self.dir / (target.name + '.md')
+                out.symlink_to(target)
+                result = run(CHECK, source, '--render', out)
+                self.assertEqual(result.returncode, 1)
+                self.assertTrue(out.is_symlink())
+                self.assertEqual(target.read_bytes(), original)
+                self.assertIn('Invalid audit: render destination cannot be a symlink', result.stderr)
+
     def test_render_rejects_planted_symlink_parent(self):
         real = self.dir / 'real'
         real.mkdir()
@@ -128,6 +194,15 @@ class InventoryTest(Scratch):
         result = run(INVENTORY, self.repo, *args, env=self.env)
         self.assertEqual(result.returncode, 0, result.stderr)
         return json.loads(result.stdout) if not args else None
+
+    def test_untracked_credential_files_are_excluded(self):
+        names = {'.envrc', '.git-credentials', '.pgpass'}
+        for name in names:
+            (self.repo / name).touch()
+        data = self.inventory()
+        sensitive = {row['path'] for row in data['excluded'] if row['reason'] == 'sensitive_path'}
+        self.assertEqual(names - sensitive, set())
+        self.assertTrue(names.isdisjoint(row['path'] for row in data['files']))
 
     def test_user_global_filter_does_not_skip_dirty_status(self):
         with self.global_config.open('a') as stream:

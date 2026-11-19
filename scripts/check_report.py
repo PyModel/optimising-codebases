@@ -6,7 +6,9 @@ This checks internal consistency, never factual correctness or completeness.
 from __future__ import annotations
 import argparse
 from collections import Counter
+from contextlib import suppress
 from datetime import date, datetime
+import errno
 import html
 import heapq
 import json
@@ -14,7 +16,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import sys
-import tempfile
+import uuid
 from urllib.parse import urlsplit
 import stat
 
@@ -130,7 +132,8 @@ def validate(data):
     start = timestamp(string(audit, 'started_at', 'audit'), 'audit.started_at')
     end = timestamp(string(audit, 'completed_at', 'audit'), 'audit.completed_at')
     need(end >= start, 'audit: completed_at precedes started_at')
-    choice(audit, 'mode', {'full', 'focused', 'delta'}, 'audit')
+    if choice(audit, 'mode', {'full', 'focused', 'delta'}, 'audit') == 'delta':
+        string(audit, 'baseline', 'audit')
     completion = choice(audit, 'completion', {'complete', 'partial'}, 'audit')
     choice(audit, 'working_tree', {'clean', 'dirty', 'not-git', 'unknown'}, 'audit')
     strings(audit, 'scope', 'audit', True)
@@ -152,6 +155,7 @@ def validate(data):
     source_ids = identifiers(sources, 'sources')
     action_ids = identifiers(actions, 'next_actions')
     incomplete = []
+    not_applicable = set()
     for row in coverage:
         where = f'coverage[{row["id"]}]'
         for key in ('area', 'owner'):
@@ -162,6 +166,8 @@ def validate(data):
         strings(row, 'gaps', where, status != 'reviewed')
         if status in {'partial', 'blocked', 'not-reviewed'}:
             incomplete.append(row['id'])
+        elif status == 'not-applicable':
+            not_applicable.add(row['id'])
     need(completion != 'complete' or not (incomplete or pending),
          f'audit.completion: complete conflicts with incomplete coverage {incomplete} or pending tasks')
     executed = set()
@@ -221,7 +227,9 @@ def validate(data):
             first, last = loc.get('start_line'), loc.get('end_line')
             need(type(first) is int and type(last) is int and 1 <= first <= last,
                  f'{where}: invalid location line range')
-        references(row, 'coverage_ids', cov_ids, where, True)
+        coverage_refs = references(row, 'coverage_ids', cov_ids, where, True)
+        invalid_refs = not_applicable.intersection(coverage_refs)
+        need(not invalid_refs, f'{where}.coverage_ids: not-applicable coverage {sorted(invalid_refs)}')
         refs = references(row, 'command_ids', cmd_ids, where)
         references(row, 'sources', source_ids, where)
         if verification == 'reproduced':
@@ -243,12 +251,13 @@ def validate(data):
         if row['decision'] == 'duplicate':
             need(row['related_finding'] is not None, 'adjudication: duplicate must reference retained finding')
     graph = {}
+    action_findings = set()
     for row in actions:
         where = f'next_actions[{row["id"]}]'
         for key in ('action', 'acceptance'):
             string(row, key, where)
         choice(row, 'priority', {'P0', 'P1', 'P2', 'P3'}, where)
-        references(row, 'finding_ids', find_ids, where)
+        action_findings.update(references(row, 'finding_ids', find_ids, where))
         graph[row['id']] = set(references(row, 'depends_on', action_ids, where))
     done = set()
     while graph:
@@ -256,6 +265,9 @@ def validate(data):
         need(bool(ready), 'next_actions: cyclic dependencies')
         done.update(ready)
         graph = {key: deps for key, deps in graph.items() if key not in ready}
+    for row in findings:
+        if row['priority'] in {'P0', 'P1'} and row['id'] not in action_findings:
+            warnings.append(f'{row["id"]}: {row["priority"]} finding has no next action')
     if not sources:
         warnings.append('No online sources recorded; explain whether unavailable or unnecessary for the chosen scope.')
     if incomplete:
@@ -384,25 +396,61 @@ def reject_constant(value):
     raise Invalid('non-finite JSON number: ' + value)
 
 
+def open_render_directory(component, flags, parent_fd):
+    try:
+        try:
+            return os.open(component, flags, dir_fd=parent_fd)
+        except FileNotFoundError:
+            with suppress(FileExistsError):  # Another render may create the same parent.
+                os.mkdir(component, 0o700, dir_fd=parent_fd)
+            return os.open(component, flags, dir_fd=parent_fd)
+    except OSError as exc:
+        if exc.errno in {errno.ELOOP, errno.ENOTDIR}:
+            raise Invalid(f'render parent cannot be a symlink or non-directory: {component!r}') from None
+        raise
+
+
 def write_atomic(path, content, source):
     need(path.suffix.lower() == '.md', '--render destination must use .md')
+    # CPython advertises the dir-fd capability shared by rename and replace under rename.
+    supported = os.supports_dir_fd
+    unsupported = 'safe render output is unsupported on this platform; omit --render'
+    need(hasattr(os, 'O_NOFOLLOW') and hasattr(os, 'O_DIRECTORY')
+         and {os.open, os.mkdir, os.unlink} <= supported and bool({os.replace, os.rename} & supported),
+         unsupported)
     path = Path(os.path.abspath(path))
     path = resolve_os_links(path.parent) / path.name
-    need(path.resolve() != source.resolve(), 'render destination cannot overwrite input')
-    need(not path.is_symlink(), 'render destination cannot be a symlink')
-    need(not any(parent.is_symlink() for parent in path.absolute().parents), 'render parent cannot be a symlink')
-    need(not path.exists() or path.is_file(), 'render destination must be a regular file')
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, temp = tempfile.mkstemp(prefix='.audit-report-', dir=path.parent)
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    parent_fd = os.open(path.anchor, flags)
     try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as stream:
-            stream.write(content)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temp, path)
+        for component in path.parent.parts[1:]:
+            child = open_render_directory(component, flags, parent_fd)
+            os.close(parent_fd)
+            parent_fd = child
+        try:
+            info = os.lstat(path.name, dir_fd=parent_fd)
+        except FileNotFoundError:
+            pass
+        else:
+            need(not stat.S_ISLNK(info.st_mode), 'render destination cannot be a symlink')
+            need(stat.S_ISREG(info.st_mode), 'render destination must be a regular file')
+            need(not os.path.samestat(info, source.stat()), 'render destination cannot overwrite input')
+        temp = '.audit-report-' + uuid.uuid4().hex
+        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=parent_fd)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as stream:
+                stream.write(content)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temp, path.name, src_dir_fd=parent_fd, dst_dir_fd=parent_fd)
+        except BaseException:
+            os.unlink(temp, dir_fd=parent_fd)
+            raise
+        os.fsync(parent_fd)
+    except NotImplementedError:
+        raise Invalid(unsupported) from None
     finally:
-        if os.path.exists(temp):
-            os.unlink(temp)
+        os.close(parent_fd)
 
 
 def main():

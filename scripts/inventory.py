@@ -36,6 +36,7 @@ SENSITIVE_DIRS = frozenset({".ssh", ".aws", ".gnupg", ".kube", ".vault", "secret
 RELEVANT_DIRS = (".github", ".gitlab", ".circleci", ".devcontainer")
 SENSITIVE_NAMES = frozenset({
     ".netrc", ".npmrc", ".pypirc", ".env", "credentials", "kubeconfig",
+    ".envrc", ".git-credentials", ".pgpass",
     "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
 })
 SENSITIVE_SUFFIXES = (".pem", ".key", ".p12", ".pfx", ".keystore", ".tfstate", ".tfstate.backup")

@@ -70,7 +70,7 @@ Required: `id`, `repository`, `snapshot`, `started_at`, `completed_at`, `mode`, 
 - `completion`: `complete` or `partial`; this describes the review plan, not bug-free software.
 - `working_tree`: `clean`, `dirty`, `not-git`, or `unknown`.
 - `scope`: nonempty string array. `exclusions` and `limitations`: string arrays.
-- Optional `baseline`: prior report/snapshot identity for delta mode.
+- `baseline` identifies the prior report or snapshot. Delta mode requires a nonempty string. The field is optional in other modes.
 
 ### coverage[]
 
@@ -85,7 +85,7 @@ Required: `id`, `area`, `paths`, `owner`, `status`, `checks`, `evidence`, `gaps`
 
 Required scalar strings: `id`, `title`, `kind`, `category`, `severity`, `confidence`, `verification`, `priority`, `fingerprint`, `invariant`, `impact`, `recommendation`, `verification_detail`, `effort`.
 
-Required arrays: `locations`, `preconditions`, `failure_sequence`, `counterevidence`, `validation`, `tradeoffs`, `coverage_ids`, `command_ids`, `sources`. The first six need at least one entry; `tradeoffs` can state that a proposed small change has no identified material trade-off. ID references must exist in their ledgers. Every finding must reference at least one coverage row.
+Required arrays: `locations`, `preconditions`, `failure_sequence`, `counterevidence`, `validation`, `tradeoffs`, `coverage_ids`, `command_ids`, `sources`. The first six need at least one entry; `tradeoffs` can state that a proposed small change has no identified material trade-off. ID references must exist in their ledgers. Every finding must reference at least one coverage row, and `coverage_ids` must exclude rows marked `not-applicable`.
 
 - `id`: stable `AUD-001`-style identifier; do not renumber persistent findings merely to sort them.
 - `category`: descriptive domain such as security, correctness, data-integrity, resilience, contract, configuration, performance, scalability, supply-chain, privacy, testing, accessibility, or maintainability.
@@ -114,7 +114,7 @@ Required nonempty strings: `id`, `title`, `publisher`, `url`, `accessed_at`, `ve
 
 Adjudication records require `candidate`, `decision` (`rejected`, `duplicate`, `deferred`), `reason`, and `related_finding` (existing finding ID or null).
 
-Next actions require `id`, `priority`, `action`, `finding_ids`, `depends_on`, and `acceptance`. `finding_ids` references findings; `depends_on` references other actions. State rollout, compatibility, and operator/product prerequisites in the action. The dependency graph must be acyclic. An action can address a coverage gap with an empty finding list.
+Next actions require `id`, `priority`, `action`, `finding_ids`, `depends_on`, and `acceptance`. `finding_ids` references findings; `depends_on` references other actions. State rollout, compatibility, and operator/product prerequisites in the action. The dependency graph must be acyclic. An action can address a coverage gap with an empty finding list. The validator warns for each P0 or P1 finding that no action references in `finding_ids`.
 
 ## Coverage and completion
 
