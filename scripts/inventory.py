@@ -94,7 +94,9 @@ def command(args: list[str], root: Path, timeout: float, limit: int) -> dict:
             if remaining <= 0:
                 reason = "timeout"
                 break
+            # Recheck the deadline within 200 ms even when the pipe stays quiet.
             for key, _ in selector.select(min(remaining, 0.2)):
+                # Read 64 KiB at a time to batch syscalls and bound each allocation.
                 chunk = os.read(key.fileobj.fileno(), 65536)
                 if not chunk:
                     selector.unregister(key.fileobj)
@@ -109,10 +111,12 @@ def command(args: list[str], root: Path, timeout: float, limit: int) -> dict:
         if reason:
             process.kill()
         try:
+            # Allow at least 10 ms to reap a process that just closed stdout.
             code = process.wait(timeout=max(0.01, deadline - time.monotonic()))
         except subprocess.TimeoutExpired:
             reason = "timeout"
             process.kill()
+            # Two seconds gives a killed child time to exit while bounding cleanup.
             code = process.wait(timeout=2)
         return {"stdout": bytes(output), "code": code, "limit": reason}
     except (OSError, ValueError, subprocess.SubprocessError) as exc:
@@ -123,6 +127,7 @@ def command(args: list[str], root: Path, timeout: float, limit: int) -> dict:
             if process.poll() is None:
                 process.kill()
                 try:
+                    # Use the same two-second reap budget on the exception path.
                     process.wait(timeout=2)
                 except subprocess.TimeoutExpired:
                     pass
@@ -386,6 +391,7 @@ def collect(root: Path, maximum: int, depth: int, timeout: float) -> dict:
                 "dirty_paths": [], "status_complete": False}
     method = "filesystem"
     if git:
+        # A 64 KiB probe accommodates long root paths while bounding unexpected output.
         top = command(base + ["rev-parse", "--show-toplevel"], root, timeout, 65536)
         if top["limit"]:
             inventory.gap("Git metadata probing failed or reached a limit; filesystem fallback may be required.")
@@ -400,9 +406,13 @@ def collect(root: Path, maximum: int, depth: int, timeout: float) -> dict:
                 git_data.update(detected=True, root=str(top_path))
                 for name, args in (("commit", ["rev-parse", "--verify", "HEAD"]),
                                    ("branch", ["symbolic-ref", "--quiet", "--short", "HEAD"])):
+                    # A commit or branch name fits within the same 64 KiB probe budget.
                     value = command(base + args, root, timeout, 65536)
                     if value["code"] == 0 and not value["limit"]:
                         git_data[name] = decode(value["stdout"].removesuffix(b"\n"))
+                # Allow 2 KiB per path for long names and Git metadata.
+                # The 64 KiB floor accommodates long records even for small path budgets.
+                # The 64 MiB ceiling bounds memory for a single listing or status result.
                 limit = min(64 * 1024 * 1024, max(65536, maximum * 2048))
                 listing = command(base + ["ls-files", "-z", "--cached", "--others",
                                           "--exclude-standard", "--stage", "-t"], root, timeout, limit)
@@ -435,6 +445,7 @@ def collect(root: Path, maximum: int, depth: int, timeout: float) -> dict:
                 # are the auditor's own tools (a trusted LFS filter may add objects
                 # under .git/lfs); decline status when any other scope (repository,
                 # worktree, include, environment) defines one or scope is unknown.
+                # Filter names and scopes share the 64 KiB budget for small metadata probes.
                 filters = command(base + ["config", "--null", "--show-scope", "--name-only", "--get-regexp",
                                           r"^(filter\..*\.(clean|process)|lfs\.extension\..*)$"],
                                   root, timeout, 65536)
@@ -556,6 +567,7 @@ def atomic_new_output(path: str, content: str) -> None:
 
 def positive(value: str) -> int:
     number = int(value)
+    # Allow at least one entry or level and cap overrides at one million to bound traversal.
     if number <= 0 or number > 1_000_000:
         raise argparse.ArgumentTypeError("Use an integer from 1 to 1000000.")
     return number
@@ -565,10 +577,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root", help="Repository or source-directory scope")
     parser.add_argument("--output", help="New JSON file; existing files and symlink parents are rejected")
+    # 100,000 paths allows large repositories while bounding the in-memory inventory.
     parser.add_argument("--max-paths", type=positive, default=100000)
+    # Fifty levels accommodate nested packages while bounding directory descent.
     parser.add_argument("--max-depth", type=positive, default=50)
+    # Ten seconds gives local Git queries time to finish and limits stalls.
     parser.add_argument("--timeout", type=float, default=10.0, help="Per-Git-command timeout, 0 < seconds <= 120")
     args = parser.parse_args()
+    # Allow slower filesystems up to two minutes per Git query before recording a gap.
     if not 0 < args.timeout <= 120:
         parser.error("--timeout must be greater than zero and no more than 120 seconds")
     try:

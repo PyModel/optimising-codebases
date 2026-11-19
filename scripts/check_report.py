@@ -88,6 +88,7 @@ def identifiers(items, where):
     result = set()
     for i, row in enumerate(items):
         name = string(row, 'id', f'{where}[{i}]')
+        # Allow 95 characters after the first letter for descriptive but readable cross-references.
         need(bool(re.fullmatch(r'[A-Za-z][A-Za-z0-9_-]{0,95}', name)), f'{where}: invalid ID {name!r}')
         need(name not in result, f'{where}: duplicate ID {name}')
         result.add(name)
@@ -460,6 +461,7 @@ def main():
     args = parser.parse_args()
     try:
         need(args.report.is_file(), 'report must be a regular file')
+        # Allow 32 MiB for detailed evidence while bounding the input parsed in memory.
         need(args.report.stat().st_size <= 32 * 1024 * 1024, 'report exceeds 32 MiB; split audit into scoped reports')
         data = json.loads(args.report.read_text(encoding='utf-8'), object_pairs_hook=unique_object, parse_constant=reject_constant)
         warnings = validate(data)

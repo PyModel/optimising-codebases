@@ -1,0 +1,38 @@
+{
+  "skill_name": "optimising-codebases",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Run a full, report-only audit of the charge-service fixture in evals/files/charge-service. Put the audit artifacts outside the fixture.",
+      "expected_output": "An inventory and a validated audit.json for charge-service, with a located defect explaining how a single payment can be charged twice.",
+      "files": ["evals/files/charge-service/charge.py", "evals/files/charge-service/test_charge.py"],
+      "expectations": [
+        "The execution trace shows scripts/inventory.py run with python3 -I on the fixture. Its inventory lists charge.py and test_charge.py.",
+        "The run writes audit.json outside the fixture and python3 -I scripts/check_report.py exits zero on that report.",
+        "A finding with kind=defect cites the retry in charge.py. Its failure sequence explains that the gateway accepts the first charge, the response times out, and the retry uses a new idempotency key so the gateway accepts a second charge.",
+        "The fixture has the same source files with identical contents before and after the audit."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Optimise this codebase",
+      "expected_output": "A report-only audit of charge-service that distinguishes correctness repairs from optional improvements and ties any proposed speedup to workload evidence.",
+      "files": ["evals/files/charge-service/charge.py", "evals/files/charge-service/test_charge.py"],
+      "expectations": [
+        "Each optional improvement the report recommends has kind=improvement and a validation step. If none is justified, the report records zero improvements.",
+        "Every unmeasured speedup is labeled a hypothesis. Any numerical speedup presented as measured cites the workload and benchmark result.",
+        "Each recommendation to add microservices, caches, or circuit breakers is backed by a fixture-specific workload argument, or the report makes no such recommendation."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Please review this single-PR diff for correctness and missing tests. The only change in charge.py is replacing except TimeoutError with except Exception. Keep the review scoped to that change.",
+      "expected_output": "A routine diff review routed to code-review.",
+      "files": [],
+      "expectations": [
+        "The routing decision or response identifies code-review as the preferred skill for this request.",
+        "The run does not start a repository-wide audit, run the inventory script, or produce audit.json."
+      ]
+    }
+  ]
+}

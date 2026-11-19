@@ -10,7 +10,7 @@
 
 ## Evidence and classification
 
-A finding must connect source evidence to a consequence. A candidate from a regex, complexity metric, dependency scanner, or model intuition is a lead until its context is verified.
+A finding must connect source evidence to a consequence. Check the context of each candidate from a regex, complexity metric, dependency scanner, or model intuition before recording it as a finding.
 
 Use separate dimensions:
 
@@ -23,9 +23,9 @@ Use separate dimensions:
 | priority | P0, P1, P2, P3 | Urgency and sequencing in this project |
 | effort | S, M, L, XL, unknown | Rough implementation/validation scope, not a promised duration |
 
-A `static-verified` item requires reachable code evidence and checked counterevidence. A `reproduced` item additionally references an actually executed command and describes its result. If external enforcement or deployment state is unknown, retain the issue as a hypothesis unless the conclusion is valid without that fact.
+A `static-verified` finding requires reachable code evidence and checked counterevidence. A `reproduced` finding additionally references an actually executed command and describes its result. If external enforcement or deployment state is unknown, retain the finding as a hypothesis unless the conclusion is valid without that fact.
 
-Verified defect totals include only `kind=defect` with `verification=reproduced` or `static-verified`. Present risks, hypotheses, and improvements separately. Never count the same item in multiple primary totals. Conditional high-impact hypotheses must be clearly labeled and excluded from verified defect counts.
+Verified defect totals include only `kind=defect` with `verification=reproduced` or `static-verified`. Present risks, hypotheses, and improvements separately. Never count the same finding in multiple primary totals. Conditional high-impact hypotheses must be clearly labeled and excluded from verified defect counts.
 
 For optimizations, use `kind=improvement` unless there is an independently demonstrable correctness/resource-limit failure. Put workload assumptions in `preconditions`, mechanism in `failure_sequence`, evidence/measurement limits in `verification_detail`, and benefit trade-offs in `tradeoffs`. Unmeasured speedup claims cannot be `reproduced`.
 
@@ -53,7 +53,7 @@ Start from `assets/audit-template.json`. Replace its illustrative metadata; keep
 |---|---|
 | schema_version | `1.0` |
 | audit | Metadata object below |
-| coverage | Nonempty list of coverage rows |
+| coverage | Coverage ledger (nonempty list of rows) |
 | findings | List of findings, including clearly classified hypotheses and improvements |
 | commands | List of verification command records, including blocked/not-run planned checks |
 | sources | Source ledger, or empty with a limitation if online verification was unavailable/unneeded |
@@ -85,7 +85,7 @@ Required: `id`, `area`, `paths`, `owner`, `status`, `checks`, `evidence`, `gaps`
 
 Required scalar strings: `id`, `title`, `kind`, `category`, `severity`, `confidence`, `verification`, `priority`, `fingerprint`, `invariant`, `impact`, `recommendation`, `verification_detail`, `effort`.
 
-Required arrays: `locations`, `preconditions`, `failure_sequence`, `counterevidence`, `validation`, `tradeoffs`, `coverage_ids`, `command_ids`, `sources`. The first six need at least one entry; `tradeoffs` can state that a proposed small change has no identified material trade-off. ID references must exist in their ledgers. Every finding must reference at least one coverage row, and `coverage_ids` must exclude rows marked `not-applicable`.
+Required arrays: `locations`, `preconditions`, `failure_sequence`, `counterevidence`, `validation`, `tradeoffs`, `coverage_ids`, `command_ids`, `sources`. The first six need at least one entry; `tradeoffs` can state that a proposed small change has no identified material trade-off. ID references must exist in their ledgers. Every finding must reference at least one coverage ledger row, and `coverage_ids` must exclude rows marked `not-applicable`.
 
 - `id`: stable `AUD-001`-style identifier; do not renumber persistent findings merely to sort them.
 - `category`: descriptive domain such as security, correctness, data-integrity, resilience, contract, configuration, performance, scalability, supply-chain, privacy, testing, accessibility, or maintainability.
@@ -114,7 +114,7 @@ Required nonempty strings: `id`, `title`, `publisher`, `url`, `accessed_at`, `ve
 
 Adjudication records require `candidate`, `decision` (`rejected`, `duplicate`, `deferred`), `reason`, and `related_finding` (existing finding ID or null).
 
-Next actions require `id`, `priority`, `action`, `finding_ids`, `depends_on`, and `acceptance`. `finding_ids` references findings; `depends_on` references other actions. State rollout, compatibility, and operator/product prerequisites in the action. The dependency graph must be acyclic. An action can address a coverage gap with an empty finding list. The validator warns for each P0 or P1 finding that no action references in `finding_ids`.
+Next actions require `id`, `priority`, `action`, `finding_ids`, `depends_on`, and `acceptance`. `finding_ids` references findings; `depends_on` references other actions. State rollout, compatibility, and operator/product prerequisites in the action. The dependency graph must be acyclic. An action can address a coverage gap with an empty finding list. The report checker warns for each P0 or P1 finding that no action references in `finding_ids`.
 
 ## Coverage and completion
 
@@ -124,6 +124,6 @@ Record unavailable online guidance, deployment settings, runtime workload, backu
 
 ## Report quality gate
 
-Run `scripts/check_report.py audit.json --render report.md`. It checks schema consistency, references, duplicate IDs/fingerprints, completion, reproduction records, and action dependencies; it calculates totals. It cannot establish truth, severity, actual coverage, or whether a reproduction is meaningful. Review those manually.
+Run `python3 -I <skill-dir>/scripts/check_report.py audit.json --render report.md`. It checks schema consistency, references, duplicate IDs/fingerprints, completion, reproduction records, and action dependencies; it calculates totals. It cannot establish truth, severity, actual coverage, or whether a reproduction is meaningful. Review those manually.
 
-Confirm the final report contains exact scope/snapshot, separate classifications and counts, evidence and counterevidence, actual command outcomes, primary-source claims, independent-review limits, and a dependency-aware remedy plan. Do not replace the full report with a top-five list. The chat summary can highlight the most consequential items and link to the complete artifacts.
+Confirm the final report contains exact scope/snapshot, separate classifications and counts, evidence and counterevidence, actual command outcomes, primary-source claims, independent-review limits, and a dependency-aware remedy plan. Do not replace the full report with a top-five list. The chat summary can highlight the most consequential findings and link to the complete artifacts.

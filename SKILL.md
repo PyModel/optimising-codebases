@@ -1,9 +1,9 @@
 ---
-name: optimise
-description: "Use when asked to audit a codebase comprehensively, review production readiness, assess architecture, resilience or scalability, fan out specialist agents across a repository, or optimise or harden a whole codebase through an evidence-backed audit. Scout first, tailor specialist reviews to what the scouts find, verify findings and consult current primary sources. By default, deliver a prioritized report of defects, risks and justified improvements. Apply fixes only when asked. Prefer code-review for a routine PR diff. Prefer security-audit for a security-only review or pen test. Prefer improve for read-only handoff plans for other agents. Prefer critique for an adversarial critique of one design, component or flow."
+name: optimising-codebases
+description: "Use when asked to audit a codebase comprehensively, review production readiness, assess architecture, resilience or scalability, fan out specialists across a repository, or optimise or harden a whole codebase through an evidence-backed audit. Scout first, tailor specialist reviews to what the scouts find, verify findings and consult version-matched primary sources. By default, deliver a prioritized report of defects, risks and justified improvements. Apply fixes only when asked. Prefer code-review for a routine PR diff. Prefer security-audit for a security-only review or pen test. Prefer improve for read-only handoff plans for other agents. Prefer critique for an adversarial critique of one design, component or flow."
 ---
 
-# Optimise
+# Optimising Codebases
 
 ## Operating contract
 
@@ -23,7 +23,7 @@ Read [report-contract.md](references/report-contract.md) before collecting findi
 1. Resolve the repository from the user's selection, current checkout, or supplied path. If source access is unavailable, explain the exact access gap and request a repository/path; do not present a fabricated audit.
 2. Read the root and relevant nested AGENTS.md, project instructions, architecture records, manifests, lockfiles, supported-version declarations, build and test configuration, deployment manifests, schema/migrations, and CI workflows. Include relevant dot-directories such as `.github`; do not dump environment files or credentials.
 3. Record repository identity, root, branch, commit, start time, dirty paths, scope, exclusions, runtime versions, and available tools. For dirty or non-Git input, record hashes of the specific reviewed files without recording their secret contents. Preserve user changes. Do not reset, stash, clean, or check out over them.
-4. Use `rg --files` and `rg` first. For a structured, metadata-only inventory run `python3 <skill-dir>/scripts/inventory.py <repo> --output <audit-dir>/inventory.json`. This inventories candidate paths; it does not inspect their correctness or provide review coverage. Record submodules, inaccessible paths, and skipped categories explicitly. Inspect relevant ignored deployment files or vendored code only when needed and authorized; a default exclusion is not evidence they are safe.
+4. Use `rg --files` and `rg` first. The bundled scripts require Python 3.10+ (standard library only) and Git for repository metadata. For a structured, metadata-only inventory, run `python3 -I <skill-dir>/scripts/inventory.py <repo> --output <audit-dir>/inventory.json`. This inventories candidate paths; it does not inspect their correctness or provide review coverage. Record submodules, inaccessible paths, and skipped categories explicitly. Inspect relevant ignored deployment files or vendored code only when needed and authorized; a default exclusion is not evidence they are safe.
 5. Select an output location under the project's reporting convention, or the environment's persistent artifact destination. Keep temporary execution artifacts separate. If writing inside the repository, exclude only the new report directory from the audit snapshot. Do not persist secrets in audit artifacts.
 6. Establish the verification budget from user constraints and actual resources. Estimate work in batches; do not silently impose a small finding quota or call a sample a full audit. Save checkpoints when context is tight and resume remaining coverage.
 
@@ -37,7 +37,7 @@ Assign non-overlapping discovery scopes, combining roles when necessary:
 - **State and integration scout:** persistence, queues, caches, external APIs, authentication boundaries, webhooks, state machines, and producers/consumers.
 - **Delivery and client scout:** CI/CD, runtime configuration, infrastructure, browser/mobile clients, release compatibility, observability, and recovery paths.
 
-Require each scout to return concrete paths and symbols, stack/version evidence, critical flows, trust boundaries, applicable domains, exclusions, existing safeguards, and uncertain assumptions. Scouting is discovery, not a completed audit. Do not accept an unqualified finding list without code evidence. Merge results into `architecture.md` and a coverage ledger.
+Require each scout to return concrete paths and symbols, stack/version evidence, critical flows, trust boundaries, applicable domains, exclusions, existing safeguards, and uncertain assumptions. Scouting is discovery, not a completed audit. Do not accept an unqualified finding list without code evidence. Merge results into an architecture map (`architecture.md`) and a coverage ledger.
 
 Map at least: entry point → authentication/authorization → validation → business transition → persistence → external effect → response/event → client/consumer. Record invariants such as tenant isolation, one charge per operation, monotonic state transitions, stock conservation, bounded resource use, and retention obligations only when they apply.
 
@@ -66,31 +66,31 @@ For every important stateful operation, challenge:
 
 Conduct an explicit cross-boundary pass after specialist reviews: client ↔ API ↔ schema/database; event producer ↔ consumer; code ↔ configuration ↔ deployed manifest; retries ↔ idempotency ↔ retention; application ↔ provider contract; migration ↔ old/new application; documentation ↔ enforced behavior. Compare names, enums, units, amounts, nullability, auth claims, time zones, pagination, TTLs, limits, error semantics, and version support. Trace both sides before reporting drift.
 
-Inspect suspicious code as a lead, not a verdict. A `catch`, missing local retry, `NOT VALID` constraint, high complexity score, missing test, or scanner alert alone is insufficient.
+Treat suspicious code as a candidate until you verify it. A `catch`, missing local retry, `NOT VALID` constraint, high complexity score, missing test, or scanner alert alone is insufficient.
 
-## 5. Verify current guidance against the installed stack
+## 5. Verify guidance against the installed stack
 
 Use browsing when available; research is part of this skill. Resolve installed versions from lockfiles/runtime evidence before searching. Start with official framework/language/database/provider documentation, upstream advisories, standards publishers, and original engineering guidance. Search generic concepts without private code or identifiers.
 
 For each material recommendation, record the source URL, title/publisher, access date, version/status, relevant claim, and applicability. Re-open living documentation each audit. Distinguish released/stable requirements from drafts, previews, product-specific advice, and optional patterns. A recent article is not inherently better than an applicable stable specification.
 
-Use the baseline in [sources.md](references/sources.md) as a discovery index, not permanent truth. If browsing or authoritative documentation is blocked, continue the code review, mark guidance unverified, and avoid claiming it is the latest. Never upgrade severity merely because a codebase differs from a recommendation.
+Use the source registry in [sources.md](references/sources.md) to locate primary documentation. If browsing or authoritative documentation is blocked, continue the code review and mark the guidance unverified. Never upgrade severity merely because a codebase differs from a recommendation.
 
 ## 6. Reproduce, challenge, and deduplicate
 
 1. Record each candidate using the report contract: exact location and snapshot, violated invariant, preconditions, ordered failure scenario, consequence, existing controls checked, verification status, severity, confidence, proposed remedy, and validation plan.
 2. Inspect reachable call sites and safeguards in middleware, adapters, database constraints, SDK defaults, infrastructure, and deployment policy. Distinguish an actual defect from unavailable runtime evidence.
 3. Run the smallest meaningful verification that resolves uncertainty: focused existing tests, static/type checks, safe isolated repros, migration validation on disposable data, or measured local benchmarks. Review scripts and hooks before execution. See [verification.md](references/verification.md). Never mutate production or run network load tests as an implicit audit step.
-4. Independently review every proposed Critical/High finding and a risk-based sample of the rest. Send the claim and raw code/evidence with a request to determine correctness, exploit/failure prerequisites, counterevidence, and severity. If independent capacity is unavailable, perform a separate counterevidence pass and disclose the missing independent check.
+4. Independently review every Critical/High candidate and a risk-based sample of the rest. Send the claim and raw code/evidence with a request to determine correctness, exploit/failure prerequisites, counterevidence, and severity. If independent capacity is unavailable, perform a separate counterevidence pass and disclose the missing independent check.
 5. Mark outcomes `reproduced`, `static-verified`, or `hypothesis`. Keep unsupported suspicions in hypotheses, never in verified defect counts. A static finding can be strong when the complete failure path is provable; do not claim a reproduction that was not executed.
-6. Deduplicate by invariant, cause, affected boundary, and remedy, not by matching titles. Keep distinct issues when they need different fixes. Preserve related locations and discarded/duplicate candidate rationale in an adjudication log.
+6. Deduplicate by invariant, cause, affected boundary, and remedy, not by matching titles. Keep distinct findings when they need different fixes. Preserve related locations and discarded/duplicate candidate rationale in an adjudication log.
 7. For optimizations, state workload assumptions, the bottleneck mechanism, measurements or missing evidence, expected benefit, complexity/cost, and a benchmark or acceptance criterion. Describe unmeasured gains as hypotheses. Do not invent speedups or mandate microservices, CQRS, event sourcing, caches, circuit breakers, or retries without need.
 
 ## 7. Close coverage gaps and reconcile the snapshot
 
-Before finalizing, give the coverage ledger and architecture map to a reviewer who did not own the primary specialist passes, if capacity allows. Ask which components, trust boundaries, lifecycle transitions, deployment assumptions, and client/server contracts were missed. Dispatch focused follow-ups for concrete gaps. If only one agent is available, run a distinct gap pass yourself and record that limitation.
+Before finalizing, give the coverage ledger and architecture map to a gap reviewer who did not own the primary specialist passes, if capacity allows. Ask which components, trust boundaries, lifecycle transitions, deployment assumptions, and client/server contracts were missed. Dispatch focused follow-ups for concrete gaps. If only one agent is available, run a distinct gap pass yourself and record that limitation.
 
-Every applicable ledger row must be reviewed, or explicitly partial/blocked/not-reviewed with a reason and next verification step. A claimed full audit must not hide sampling or skipped tests. Review scope is not a percentage of bug detection.
+Every applicable coverage ledger row must be reviewed, or explicitly partial/blocked/not-reviewed with a reason and next verification step. A claimed full audit must not hide sampling or skipped tests. Review scope is not a percentage of bug detection.
 
 Re-read cited lines and snapshot metadata before delivery. If source changed, revalidate affected findings against the new snapshot or mark them stale and identify the inspected revision. Do not attribute evidence to the current HEAD if it was collected from a different tree.
 
@@ -98,16 +98,16 @@ Stop when planned accessible coverage is reconciled, significant findings are ad
 
 ## 8. Deliver an actionable audit
 
-Create `audit.json` using [report-contract.md](references/report-contract.md) and [audit-template.json](assets/audit-template.json). The template is a starting shape, not a completed audit. Validate and render the report:
+Create `audit.json` using [report-contract.md](references/report-contract.md) and [audit-template.json](assets/audit-template.json). The template is a starting shape, not a completed audit. Run the report checker to validate and render it.
 
 ```bash
-python3 <skill-dir>/scripts/check_report.py <audit-dir>/audit.json --render <audit-dir>/report.md
+python3 -I <skill-dir>/scripts/check_report.py <audit-dir>/audit.json --render <audit-dir>/report.md
 ```
 
-The checker verifies structure and consistency, not truth. Fix validation errors without weakening the contract. Keep architecture/flow mapping, coverage, command outcomes, source ledger, adjudication, and resumable state in the same report set; avoid duplicate manually maintained totals.
+The report checker verifies structure and consistency, not truth. Fix validation errors without weakening the contract. Keep the architecture map, coverage ledger, command outcomes, source ledger, adjudication, and resumable state in the same report set; avoid duplicate manually maintained totals.
 
 Lead the final response with the inspected snapshot, the most consequential verified findings, and the practical next actions. Separate verified defects, future risks, hypotheses, and optional improvements. Show severity and confidence separately, actual execution results, uncovered areas, and what cannot be inferred from source alone. Provide links to the report artifacts using the environment's supported delivery mechanism.
 
 Order remediation by urgency, prerequisites, and safe sequencing. For each material fix include scope, effort, compatibility/rollout considerations, and acceptance tests. Make architectural refactors conditional on measured need. If the user already requested fixes, proceed with the authorized work after capturing the baseline; otherwise finish the audit without editing product code.
 
-For a later rerun, compare the same scope and evidence fingerprints. Classify new, persistent, resolved, regressed, and unverified items; call an item resolved only after inspecting its fix and verification evidence. Changed titles or missing scan output do not establish resolution.
+For a later rerun, compare the same scope and evidence fingerprints. Classify new, persistent, resolved, regressed, and unverified findings; call a finding resolved only after inspecting its fix and verification evidence. Changed titles or missing scan output do not establish resolution.

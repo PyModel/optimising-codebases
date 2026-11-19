@@ -15,7 +15,7 @@ Select domains from the discovered system, then specialize each row to actual co
 
 For each applicable row, retain the inspected paths, checks performed, evidence, verification result, exclusions, and remaining uncertainty in the coverage ledger. A checklist mark without evidence is not completed review. Trace call sites and downstream safeguards before declaring an omission. Use the finding and confidence rules in `report-contract.md`; distinguish a demonstrated defect from a future risk, hypothesis, or optional improvement.
 
-Consult `sources.md` for current, version-matched documentation. Research platform-specific semantics before judging them. A missing local control may be enforced by a framework, database, SDK, gateway, or deployment policy; verify that enforcement and its scope.
+Consult `sources.md` for version-matched documentation. Research platform-specific semantics before judging them. A missing local control may be enforced by a framework, database, SDK, gateway, or deployment policy; verify that enforcement and its scope.
 
 ## Audit domains
 
@@ -113,7 +113,7 @@ Consult `sources.md` for current, version-matched documentation. Research platfo
 - **Check:** Loading/empty/error states; double submission; stale requests; navigation races; client storage failure; cache/session leakage; hydration/rendering failures; keyboard access; focus and modal behavior; accessible names; form errors; contrast, reflow, zoom, and reduced-motion needs.
 - **Find omissions:** Durable actions acknowledged only in local UI state; paid or deleted items restored from stale storage; optimistic updates never reconciled; dialogs trap focus incorrectly; validation feedback unavailable to assistive technology; essential actions inaccessible without a pointer.
 - **Require proof:** Trace UI state to the actual network/storage result; inspect rendered behavior for interaction/layout claims. Cite the relevant [WCAG criterion](https://www.w3.org/TR/WCAG22/) and observed failure when reporting an accessibility issue.
-- **Avoid traps:** Static markup alone cannot establish all interaction or contrast outcomes. Automated accessibility scans do not establish full conformance. A cosmetic preference is an enhancement, not necessarily a usability defect.
+- **Avoid traps:** Static markup alone cannot establish all interaction or contrast outcomes. Automated accessibility scans do not establish full conformance. A cosmetic preference is an improvement, not necessarily a usability defect.
 
 ### 13. Mobile, offline, and device lifecycle
 
@@ -174,4 +174,4 @@ Apply these to critical stateful operations; record cases not reviewed and why.
 
 ## Primary-source pointers
 
-The links above are starting points, not frozen requirements. Select the installed version and recheck status during each audit. Use the expanded source ledger in `sources.md` for retries, delivery, supply chain, security standards, and provider-specific guarantees; record the exact sources actually used in the report.
+The links above are starting points, not frozen requirements. Select the installed version and recheck status during each audit. Use the source registry in `sources.md` for retries, delivery, supply chain, security standards, and provider-specific guarantees; record the exact sources actually used in the report.

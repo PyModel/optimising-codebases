@@ -1,6 +1,6 @@
-# Optimise
+# Optimising Codebases
 
-Optimise audits a whole codebase. Scouts map the repository, specialists review the risks they uncover, and the skill verifies findings against the code and current primary sources. It reports defects, risks and justified improvements in priority order and applies fixes only when asked.
+Optimising Codebases audits a whole codebase. Scouts map the repository, specialists review the risks they uncover, and the skill verifies findings against the code and version-matched primary sources. It reports defects, risks and justified improvements in priority order and applies fixes only when asked.
 
 ## Repository layout
 
@@ -17,10 +17,10 @@ From the repository root, create the canonical symlink and the three relative li
 
 ```sh
 mkdir -p ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.pi/agent/skills
-ln -sn "$PWD" ~/.agents/skills/optimise
-ln -sn ../../.agents/skills/optimise ~/.claude/skills/optimise
-ln -sn ../../.agents/skills/optimise ~/.codex/skills/optimise
-ln -sn ../../../.agents/skills/optimise ~/.pi/agent/skills/optimise
+ln -sn "$PWD" ~/.agents/skills/optimising-codebases
+ln -sn ../../.agents/skills/optimising-codebases ~/.claude/skills/optimising-codebases
+ln -sn ../../.agents/skills/optimising-codebases ~/.codex/skills/optimising-codebases
+ln -sn ../../../.agents/skills/optimising-codebases ~/.pi/agent/skills/optimising-codebases
 ```
 
 ## Run the tests
