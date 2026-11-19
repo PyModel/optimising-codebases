@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "audit": {
+    "id": "REPLACE_WITH_AUDIT_ID",
+    "repository": "REPLACE_WITH_REPOSITORY",
+    "snapshot": "REPLACE_WITH_REVISION_AND_WORKTREE_EVIDENCE",
+    "started_at": "REPLACE_WITH_ISO_TIME",
+    "completed_at": "REPLACE_WITH_ISO_TIME",
+    "mode": "full",
+    "completion": "partial",
+    "working_tree": "unknown",
+    "scope": ["."],
+    "exclusions": [],
+    "limitations": ["Replace with actual source, runtime, tooling, and research limitations."]
+  },
+  "coverage": [],
+  "findings": [],
+  "commands": [],
+  "sources": [],
+  "adjudication": [],
+  "next_actions": [],
+  "resume": {"pending_tasks": [], "notes": []}
+}
